@@ -19,7 +19,7 @@ public class Md5Results {
     }
 
 
-    public void addMd5(String sourcePath, String relativePath, String md5){
+    public void add(String sourcePath, Object threadId, String relativePath, String md5){
         var sourceMap = results.putIfAbsent(
             relativePath,
             sources.stream().collect(()->Collections.synchronizedMap(new HashMap<>()), (map,elem)->map.put(elem,null), Map::putAll)

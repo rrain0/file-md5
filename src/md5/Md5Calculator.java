@@ -21,6 +21,10 @@ public class Md5Calculator {
         mdEnc.update(bytes, 0, bytes.length);
     }
 
+    public void addNextPart(byte[] bytes, int len){
+        mdEnc.update(bytes, 0, len);
+    }
+
     // get and reset
     public String getMd5(){
         String md5 = new BigInteger(1, mdEnc.digest()).toString(16);
