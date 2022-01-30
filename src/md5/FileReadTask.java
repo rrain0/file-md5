@@ -6,15 +6,17 @@ import java.nio.file.Path;
 public class FileReadTask implements Runnable {
     public final SourceInfo sourceInfo;
     public final Cache cache;
+    public final Md5 md5;
 
 
     // todo notify thread manager about progress
     // todo max filepart in ram
 
 
-    public FileReadTask(SourceInfo sourceInfo, Cache cache) {
+    public FileReadTask(SourceInfo sourceInfo, Cache cache, Md5 md5) {
         this.sourceInfo = sourceInfo;
         this.cache = cache;
+        this.md5 = md5;
     }
 
 
@@ -28,10 +30,12 @@ public class FileReadTask implements Runnable {
     }
 
     private void walkFileTree(Path p) throws InterruptedException {
+        md5.awaitForWork(sourceInfo);
         Path root = sourceInfo.path();
         File f = root.resolve(p).toFile();
         if (f.isFile()){
             readFile(f,p);
+            md5.oneFileWasRead(sourceInfo);
         } else if (f.isDirectory()){
             for (File ff : f.listFiles()){
                 Path pp = p.resolve(ff.getName());
