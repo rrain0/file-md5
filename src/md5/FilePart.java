@@ -15,6 +15,7 @@ public class FilePart {
     Path relativePath;
 
     public enum Info{
-        FIRST, PART, LAST, NOT_FOUND, READ_ERROR
+        NEW_FILE, PART, FILE_END,
+        NOT_FOUND, READ_ERROR, FINISH_ALL
     }
 }

@@ -3,6 +3,7 @@ package md5;
 import java.util.*;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
 public class Cache {
@@ -30,10 +31,14 @@ public class Cache {
 
     public Cache(Iterable<SourceInfo> sourceInfos) {
         map = StreamSupport.stream(sourceInfos.spliterator(), false)
-            .collect(HashMap::new, (map,info)->map.put(info, new LinkedBlockingQueue<FilePart>()), Map::putAll);
+            .collect(Collectors.toUnmodifiableMap(info->info, info->new LinkedBlockingQueue<>()));
     }
 
     public void add(FilePart filePart) throws InterruptedException {
         map.get(filePart.sourceInfo).put(filePart);
+    }
+
+    public FilePart take(SourceInfo source) throws InterruptedException {
+        return map.get(source).take();
     }
 }

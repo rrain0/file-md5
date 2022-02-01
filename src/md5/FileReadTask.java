@@ -6,17 +6,17 @@ import java.nio.file.Path;
 public class FileReadTask implements Runnable {
     public final SourceInfo sourceInfo;
     public final Cache cache;
-    public final Md5 md5;
+    public final FileReadManager readManager;
 
 
     // todo notify thread manager about progress
     // todo max filepart in ram
 
 
-    public FileReadTask(SourceInfo sourceInfo, Cache cache, Md5 md5) {
+    public FileReadTask(SourceInfo sourceInfo, Cache cache, FileReadManager readManager) {
         this.sourceInfo = sourceInfo;
         this.cache = cache;
-        this.md5 = md5;
+        this.readManager = readManager;
     }
 
 
@@ -24,18 +24,23 @@ public class FileReadTask implements Runnable {
     public void run() {
         try {
             walkFileTree(Path.of(""));
+            readManager.workFinished(sourceInfo);
+            FilePart fp = new FilePart();
+            fp.sourceInfo = sourceInfo;
+            fp.info = FilePart.Info.FINISH_ALL;
+            cache.add(fp);
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
     }
 
     private void walkFileTree(Path p) throws InterruptedException {
-        md5.awaitForWork(sourceInfo);
+        readManager.awaitForWork(sourceInfo);
         Path root = sourceInfo.path();
         File f = root.resolve(p).toFile();
         if (f.isFile()){
             readFile(f,p);
-            md5.oneFileWasRead(sourceInfo);
+            readManager.oneFileWasRead(sourceInfo);
         } else if (f.isDirectory()){
             for (File ff : f.listFiles()){
                 Path pp = p.resolve(ff.getName());
@@ -49,20 +54,39 @@ public class FileReadTask implements Runnable {
             final long len = f.length();
             final int chunkSz = 50*1024*1024; // размер считываемого за раз куска в байтах
 
-            for (long from = 0, to;;){
+            {
+                FilePart fp = new FilePart();
+                fp.sourceInfo = sourceInfo;
+                fp.relativePath = relativePath;
+                fp.info = FilePart.Info.NEW_FILE;
+                fp.len = len;
+                cache.add(fp);
+            }
+
+            //System.out.println("before for");
+            for (long from = 0, to = 0; to<len; from=to){
                 to = Long.min(from+chunkSz,len);
                 byte[] buf = new byte[(int) (to-from)];
                 bis.read(buf);
                 FilePart fp = new FilePart();
                 fp.sourceInfo = sourceInfo;
                 fp.relativePath = relativePath;
-                fp.info = to<len ? FilePart.Info.PART : FilePart.Info.LAST;
+                fp.info = FilePart.Info.PART;
                 fp.from = from;
                 fp.to = to;
                 fp.len = len;
                 fp.part = buf;
                 cache.add(fp);
-                if (fp.info == FilePart.Info.LAST) break;
+            }
+            //System.out.println("after for");
+
+            {
+                FilePart fp = new FilePart();
+                fp.sourceInfo = sourceInfo;
+                fp.relativePath = relativePath;
+                fp.info = FilePart.Info.FILE_END;
+                fp.len = len;
+                cache.add(fp);
             }
         } catch (FileNotFoundException e) {
             e.printStackTrace();
