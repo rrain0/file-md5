@@ -77,7 +77,7 @@ public class FileReadManager implements Runnable{
     }
 
     synchronized public void oneFileWasRead(SourceInfo sourceInfo){
-        System.out.println("file readed "+sourceInfo.path());
+        //System.out.println("file readed "+sourceInfo.path());
 
         paused.add(sourceInfo);
         this.notifyAll();

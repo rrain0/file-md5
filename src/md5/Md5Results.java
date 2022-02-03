@@ -2,15 +2,19 @@ package md5;
 
 import java.nio.file.Path;
 import java.util.*;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
-public class Md5Results {
+// todo поиск одинаковых файлов по:
+//  относительный путь - уже сделано
+//  просто название файла
+//  по одинаковому хэшу (можно даже 2 хэша вычислять: MD5 и  CRC32 или SHA-256, можно ещё размер учитывать)
+
+public class Md5Results implements Runnable {
 
     // Set<sourcePath>
     public final Set<SourceInfo> sources;
-
-    // Map<relativePath, Map<sourcePath, ResultInfo with md5>>
-    private final Map<Path, Map<Path, ResultInfo>> results = new HashMap<>();
 
     // raw Map<sourcePath, ResultInfo with md5>
     private final Map<Path, ResultInfo> rawSourceToResultMap;
@@ -18,51 +22,152 @@ public class Md5Results {
     private final Set<SourceInfo> workingSources;
 
 
+    // Map<relativePath, Map<sourcePath, ResultInfo with md5>>
+    private final Map<Path, Map<Path, ResultInfo>> results = new HashMap<>();
+    // Map<srcPath, Map<type, count>>
+    private final Map<Path, Map<ResultInfo.Info, Integer>> filesCnt;
+
+
     public Md5Results(Set<SourceInfo> sources) {
         this.sources = sources;
         workingSources = new HashSet<>(sources);
         rawSourceToResultMap = sources.stream().collect(HashMap::new, (map,elem)->map.put(elem.path(),null), Map::putAll);
+        filesCnt = sources.stream().collect(Collectors.toUnmodifiableMap(src->src.path(), src->
+            Arrays.stream(ResultInfo.Info.values())
+                .filter(info->info!=ResultInfo.Info.FINISH_ALL)
+                .collect(Collectors.toMap(info->info,info->0))
+        ));
     }
 
 
-    synchronized public void add(ResultInfo result){
-        if (!sources.contains(result.sourceInfo())) throw new RuntimeException("Unexpected source: "+result.sourceInfo().path());
-
-        System.out.println(result);
-
-        if (result.info()==ResultInfo.Info.FINISH_ALL){
-            workingSources.remove(result.sourceInfo());
-            if (workingSources.isEmpty()) finishAll();
-            return;
+    @Override
+    public void run() {
+        try {
+            work();
+        } catch (InterruptedException e) {
+            e.printStackTrace();
         }
-
-        var sourceToResultMap = results.computeIfAbsent(
-            result.relativePath(), k->new HashMap<>(rawSourceToResultMap)
-        );
-
-        sourceToResultMap.put(result.sourceInfo().path(), result);
     }
 
-    synchronized private void finishAll(){
-        printResults();
-    }
+    private final LinkedBlockingQueue<ResultInfo> queue = new LinkedBlockingQueue<>();
 
-    private void printResults(){
-        var sources = new ArrayList<>(this.sources);
-        results.forEach((rel,srcMap)->{
-            System.out.println(rel);
+    private void work() throws InterruptedException {
+        while (true){
+            var result = queue.take();
 
-            var first = srcMap.get(sources.get(0).path());
-            System.out.println("\t"+first.sourceInfo().path()+" MD5: "+first.md5());
-            String md5 = first.md5();
-            boolean equals = true;
-            for (int i = 1; i < sources.size(); i++) {
-                var result = srcMap.get(sources.get(i).path());
-                System.out.println("\t"+result.sourceInfo().path()+" MD5: "+result.md5());
-                equals &= md5.equals(result.md5());
+            //System.out.println("AAAAA "+result);
+
+            if (!sources.contains(result.sourceInfo())) throw new RuntimeException("Unexpected source: "+result.sourceInfo().path());
+
+            // todo Exception if try to put result if it nonnull yet - this means 1 file proceeded 2+ times
+
+            if (result.info()==ResultInfo.Info.FINISH_ALL){
+                workingSources.remove(result.sourceInfo());
+                if (workingSources.isEmpty()) break;
+                else continue;
             }
+
+
+
+            var sourceToResultMap = results.computeIfAbsent(
+                result.relativePath(), k->new HashMap<>(rawSourceToResultMap)
+            );
+            var srcPath = result.sourceInfo().path();
+            sourceToResultMap.put(srcPath, result);
+
+            //filesCnt.get(srcPath).put(result.info(), filesCnt.get(srcPath).get(result.info())+1);
+            filesCnt.get(srcPath).compute(result.info(), (info,cnt)->cnt+1);
+        }
+        finishAll();
+    }
+
+    public void add(ResultInfo result){
+        queue.add(result);
+    }
+
+    private void finishAll(){
+        var srcs = new ArrayList<>(this.sources); // to make it ordered
+        printResultsList(srcs);
+        printFalsesResults(srcs);
+        printFilesCnt(srcs);
+    }
+
+    // result может быть null если файла нет и не предполагалось
+    private void printResultsList(List<SourceInfo> srcs){
+
+        results.forEach((relPath,srcMap)->{
+            System.out.println(relPath);
+
+            String md5 = null;
+            boolean equals = true;
+            for (int i = 0; i < srcs.size(); i++) {
+                var src = srcs.get(i);
+                var result = srcMap.get(src.path());
+                if (i==0) {
+                    md5 = Optional.ofNullable(result).map(r->r.md5()).orElse(null);
+                    equals &= md5!=null;
+                }
+                else equals &= Objects.equals(md5,Optional.ofNullable(result).map(r->r.md5()).orElse(null));
+                System.out.println(printOne(src, relPath, result));
+            }
+
             System.out.println("\t"+"EQUALS: "+equals);
         });
+    }
+
+    private void printFalsesResults(List<SourceInfo> srcs){
+        System.out.println();
+        System.out.println("FALSES:");
+        results.forEach((relPath,srcMap)->{
+            StringBuilder sb = new StringBuilder();
+            sb.append(relPath).append('\n');
+
+            String md5 = null;
+            boolean equals = true;
+            for (int i = 0; i < srcs.size(); i++) {
+                var src = srcs.get(i);
+                var result = srcMap.get(src.path());
+                if (i==0) {
+                    md5 = Optional.ofNullable(result).map(r->r.md5()).orElse(null);
+                    equals &= md5!=null;
+                }
+                else equals &= Objects.equals(md5,Optional.ofNullable(result).map(r->r.md5()).orElse(null));
+                sb.append(printOne(src, relPath, result)).append('\n');
+            }
+
+            sb.append("\t"+"EQUALS: "+equals);
+
+            if (!equals) System.out.println(sb);
+        });
+    }
+
+    private void printFilesCnt(List<SourceInfo> srcs){
+        var infos = List.of(ResultInfo.Info.FILE, ResultInfo.Info.READ_ERROR, ResultInfo.Info.NOT_FOUND);
+        StringBuilder sb = new StringBuilder();
+        sb.append('\n').append("FILES COUNT:").append('\n');
+        for (var src : srcs) {
+            sb.append('\t').append("src: [").append(src.threadId()).append(", ").append(src.path()).append("]").append(" ");
+            for (var info : infos){
+                sb.append(info).append(": ").append(filesCnt.get(src.path()).get(info)).append(" ");
+            }
+            sb.append('\n');
+        }
+        System.out.println(sb);
+    }
+
+    private String printOne(SourceInfo src, Path rel, ResultInfo result){
+        return (
+            "\t"+
+            "src: ["+src.threadId()+", "+src.path()+"] "+
+            switch (Optional.ofNullable(result).map(r->r.info()).orElse(null)){
+                case FILE -> "MD5: "+result.md5();
+                case NOT_FOUND -> "FILE NOT FOUND";
+                case READ_ERROR -> "READ ERROR";
+                case null -> "NO SUCH FILE";
+                case default -> "???";
+            }+" "+
+            "full path: "+src.path().resolve(rel)
+        );
     }
 
 }

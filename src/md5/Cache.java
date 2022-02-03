@@ -6,6 +6,8 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
+// todo ограничить размер задавая суммарный максимальный размер данных файлов (т.е. учитывать только byte[] файла)
+
 public class Cache {
     //final long maxBytes;
 

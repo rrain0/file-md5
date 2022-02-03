@@ -38,9 +38,9 @@ public class Md5CalculatorTask implements Runnable {
         String md5 = new BigInteger(1, mdEnc.digest()).toString(16);
         StringBuilder sb = new StringBuilder(md5);
         while (sb.length()<32) sb.insert(0, "0");
-        sb.insert(24, " ");
-        sb.insert(16, " ");
-        sb.insert(8, " ");
+        //sb.insert(24, " ");
+        //sb.insert(16, " ");
+        //sb.insert(8, " ");
         return sb.toString().toUpperCase();
     }
 

@@ -3,14 +3,16 @@ package md5;
 import java.io.*;
 import java.nio.file.Path;
 
+
+// todo notify thread manager about progress
+// todo set max filepart in ram
+
 public class FileReadTask implements Runnable {
     public final SourceInfo sourceInfo;
     public final Cache cache;
     public final FileReadManager readManager;
 
 
-    // todo notify thread manager about progress
-    // todo max filepart in ram
 
 
     public FileReadTask(SourceInfo sourceInfo, Cache cache, FileReadManager readManager) {
