@@ -11,6 +11,7 @@ group 'com.rrain'
 version '0.1.0'
 
 
+
 //sourceCompatibility = JavaVersion.VERSION_17_PREVIEW
 //targetCompatibility = JavaVersion.VERSION_17_PREVIEW
 
@@ -28,6 +29,7 @@ tasks.withType(Test) {
 tasks.withType(JavaExec) {
     jvmArgs += '--enable-preview'
 }
+
 
 
 repositories {
