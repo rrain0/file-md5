@@ -1,0 +1,44 @@
+plugins {
+    id 'java'
+
+    // Lombok
+    // https://projectlombok.org/features/all
+    // https://plugins.gradle.org/plugin/io.freefair.lombok
+    id "io.freefair.lombok" version "6.3.0"
+}
+
+group 'com.rrain'
+version '0.1.0'
+
+
+//sourceCompatibility = JavaVersion.VERSION_17_PREVIEW
+//targetCompatibility = JavaVersion.VERSION_17_PREVIEW
+
+//sourceCompatibility = '17'
+//targetCompatibility = '17'
+
+// enabling language preview features, BUT doesn't work in jar
+// to work in jar simply add --enable-preview flag
+tasks.withType(JavaCompile) {
+    options.compilerArgs += "--enable-preview"
+}
+tasks.withType(Test) {
+    jvmArgs += "--enable-preview"
+}
+tasks.withType(JavaExec) {
+    jvmArgs += '--enable-preview'
+}
+
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    testImplementation 'org.junit.jupiter:junit-jupiter-api:5.8.1'
+    testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.8.1'
+}
+
+test {
+    useJUnitPlatform()
+}
