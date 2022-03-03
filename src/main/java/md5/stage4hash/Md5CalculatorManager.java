@@ -1,8 +1,8 @@
-package md5.stage3hash;
+package md5.stage4hash;
 
-import md5.stage1estimate.SourceInfo;
-import md5.stage2read.Cache;
-import md5.stage4results.Md5Results;
+import md5.stage1sourcesdata.SourceInfo;
+import md5.stage3read.Cache;
+import md5.stage5results.Md5Results;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -12,18 +12,16 @@ import java.util.Set;
 public class Md5CalculatorManager implements Runnable {
 
 
-    public final Set<SourceInfo> sources;
     private final Cache cache;
     private final int nSimultaneousThreads;
     private final Md5Results results;
 
-    private final List<SourceInfo> tasks;
+    private final List<SourceInfo> onlineTasks;
     private int idx = 0;
     private final Set<SourceInfo> paused;
 
-    public Md5CalculatorManager(Set<SourceInfo> sources, Cache cache, int nSimultaneousThreads, Md5Results results) {
-        this.sources = sources;
-        tasks = new ArrayList<>(sources);
+    public Md5CalculatorManager(List<SourceInfo> sources, Cache cache, int nSimultaneousThreads, Md5Results results) {
+        onlineTasks = new ArrayList<>(sources);
         paused = new HashSet<>(sources);
         this.cache = cache;
         this.nSimultaneousThreads = nSimultaneousThreads;
@@ -41,18 +39,18 @@ public class Md5CalculatorManager implements Runnable {
     }
 
     synchronized private void start(){
-        for (int i = 0; i < tasks.size(); i++) {
-            var source = tasks.get(i);
+        for (int i = 0; i < onlineTasks.size(); i++) {
+            var source = onlineTasks.get(i);
             new Thread(new Md5CalculatorTask(source, this, results, cache)).start();
-            if (tasks.size()-paused.size() < nSimultaneousThreads) paused.remove(source);
+            if (onlineTasks.size()-paused.size() < nSimultaneousThreads) paused.remove(source);
         }
     }
 
     synchronized private void work() throws InterruptedException {
-        while (!tasks.isEmpty()){
-            while (tasks.size()-paused.size() < Integer.min(nSimultaneousThreads,tasks.size())){
-                idx = (idx+1)%tasks.size();
-                var source = tasks.get(idx);
+        while (!onlineTasks.isEmpty()){
+            while (onlineTasks.size()-paused.size() < Integer.min(nSimultaneousThreads, onlineTasks.size())){
+                idx = (idx+1)% onlineTasks.size();
+                var source = onlineTasks.get(idx);
                 paused.remove(source);
             }
             this.notifyAll();
@@ -71,7 +69,7 @@ public class Md5CalculatorManager implements Runnable {
 
     synchronized public void workFinished(SourceInfo sourceInfo){
         paused.remove(sourceInfo);
-        tasks.remove(sourceInfo);
+        onlineTasks.remove(sourceInfo);
         notifyAll();
     }
 

@@ -1,6 +1,6 @@
-package md5.stage4results;
+package md5.stage5results;
 
-import md5.stage1estimate.SourceInfo;
+import md5.stage1sourcesdata.SourceInfo;
 
 import java.nio.file.Path;
 import java.util.*;
@@ -14,8 +14,8 @@ import java.util.stream.Collectors;
 
 public class Md5Results implements Runnable {
 
-    // Set<sourcePath>
-    public final Set<SourceInfo> sources;
+    // List<sourcePath>
+    public final List<SourceInfo> sources;
 
     // raw Map<sourcePath, ResultInfo with md5>
     private final Map<Path, ResultInfo> rawSourceToResultMap;
@@ -29,7 +29,7 @@ public class Md5Results implements Runnable {
     private final Map<Path, Map<ResultInfo.Info, Integer>> filesCnt;
 
 
-    public Md5Results(Set<SourceInfo> sources) {
+    public Md5Results(List<SourceInfo> sources) {
         this.sources = sources;
         workingSources = new HashSet<>(sources);
         rawSourceToResultMap = sources.stream().collect(HashMap::new, (map,elem)->map.put(elem.path(),null), Map::putAll);
@@ -87,7 +87,7 @@ public class Md5Results implements Runnable {
     }
 
     private void finishAll(){
-        var srcs = new ArrayList<>(this.sources); // to make it ordered
+        var srcs = new ArrayList<>(this.sources); // копируем для того, чтобы можно было отсортировать если надо
         printResultsList(srcs);
         printFalsesResults(srcs);
         printFilesCnt(srcs);
@@ -147,7 +147,7 @@ public class Md5Results implements Runnable {
         StringBuilder sb = new StringBuilder();
         sb.append('\n').append("FILES COUNT:").append('\n');
         for (var src : srcs) {
-            sb.append('\t').append("src: [").append(src.threadId()).append(", ").append(src.path()).append("]").append(" ");
+            sb.append('\t').append("src: [").append(src.readThreadId()).append(", ").append(src.path()).append("]").append(" ");
             for (var info : infos){
                 sb.append(info).append(": ").append(filesCnt.get(src.path()).get(info)).append(" ");
             }
@@ -159,7 +159,7 @@ public class Md5Results implements Runnable {
     private String printOne(SourceInfo src, Path rel, ResultInfo result){
         return (
             "\t"+
-            "src: ["+src.threadId()+", "+src.path()+"] "+
+            "src: ["+src.readThreadId()+", "+src.path()+"] "+
             switch (Optional.ofNullable(result).map(r->r.info()).orElse(null)){
                 case FILE -> "MD5: "+result.md5();
                 case NOT_FOUND -> "FILE NOT FOUND";

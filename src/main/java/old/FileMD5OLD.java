@@ -1,3 +1,5 @@
+package old;
+
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
@@ -22,7 +24,7 @@ import java.util.concurrent.LinkedBlockingQueue;
 
 */
 
-public class FileMD5 {
+public class FileMD5OLD {
     //private static final String PATH_1 = "O:\\DISTRIBUTIV\\ОБРАЗЫ\\Запись загрузочного образа на флешку\\BootInst";
     //private static final String PATH_2 = "L:\\БЭКАПЫ\\DISTRIBUTIV\\ОБРАЗЫ\\Запись загрузочного образа на флешку\\BootInst";
 

@@ -1,7 +1,8 @@
-package md5.stage2read;
+package md5.stage3read;
 
-import md5.stage1estimate.SourceInfo;
+import md5.stage1sourcesdata.SourceInfo;
 
+import java.util.Collection;
 import java.util.Map;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -33,9 +34,10 @@ public class Cache {
 
     private final Map<SourceInfo, BlockingQueue<FilePart>> map;
 
-    public Cache(Iterable<SourceInfo> sourceInfos) {
-        map = StreamSupport.stream(sourceInfos.spliterator(), false)
-            .collect(Collectors.toUnmodifiableMap(info->info, info->new LinkedBlockingQueue<>()));
+    public Cache(Collection<SourceInfo> sourceInfos) {
+        map = sourceInfos.stream().collect(
+            Collectors.toUnmodifiableMap(info->info, info->new LinkedBlockingQueue<>())
+        );
     }
 
     public void add(FilePart filePart) throws InterruptedException {

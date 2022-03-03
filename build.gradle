@@ -19,7 +19,7 @@ version '0.1.0'
 //targetCompatibility = '17'
 
 // enabling language preview features, BUT doesn't work in jar
-// to work in jar simply add --enable-preview flag
+// to work in jar simply add --enable-preview flag when start it via java.exe
 tasks.withType(JavaCompile) {
     options.compilerArgs += "--enable-preview"
 }

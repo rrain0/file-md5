@@ -1,10 +1,10 @@
-package md5.stage3hash;
+package md5.stage4hash;
 
-import md5.stage1estimate.SourceInfo;
-import md5.stage2read.Cache;
-import md5.stage2read.FilePart;
-import md5.stage4results.Md5Results;
-import md5.stage4results.ResultInfo;
+import md5.stage1sourcesdata.SourceInfo;
+import md5.stage3read.Cache;
+import md5.stage3read.FilePart;
+import md5.stage5results.Md5Results;
+import md5.stage5results.ResultInfo;
 
 import java.math.BigInteger;
 import java.security.MessageDigest;

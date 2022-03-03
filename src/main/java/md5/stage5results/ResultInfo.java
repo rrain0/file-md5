@@ -1,6 +1,6 @@
-package md5.stage4results;
+package md5.stage5results;
 
-import md5.stage1estimate.SourceInfo;
+import md5.stage1sourcesdata.SourceInfo;
 
 import java.nio.file.Path;
 

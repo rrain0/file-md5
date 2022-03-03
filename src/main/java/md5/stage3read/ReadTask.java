@@ -1,6 +1,6 @@
-package md5.stage2read;
+package md5.stage3read;
 
-import md5.stage1estimate.SourceInfo;
+import md5.stage1sourcesdata.SourceInfo;
 
 import java.io.*;
 import java.nio.file.Path;
@@ -9,15 +9,15 @@ import java.nio.file.Path;
 // todo notify thread manager about progress
 // todo set max filepart in ram
 
-public class FileReadTask implements Runnable {
+public class ReadTask implements Runnable {
     public final SourceInfo sourceInfo;
     public final Cache cache;
-    public final FileReadManager readManager;
+    public final ReadManager readManager;
 
 
 
 
-    public FileReadTask(SourceInfo sourceInfo, Cache cache, FileReadManager readManager) {
+    public ReadTask(SourceInfo sourceInfo, Cache cache, ReadManager readManager) {
         this.sourceInfo = sourceInfo;
         this.cache = cache;
         this.readManager = readManager;

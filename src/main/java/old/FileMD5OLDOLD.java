@@ -1,3 +1,5 @@
+package old;
+
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -6,7 +8,7 @@ import java.math.BigInteger;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 
-public class FileMD5OLD {
+public class FileMD5OLDOLD {
     //private static final String PATH_1 = "O:\\DISTRIBUTIV\\ПРОГРАММЫ\\---Медиа & Графика & Обработка данных\\Matlab R2020a [x64] [PC] [Windows]";
     //private static final String PATH_2 = "L:\\БЭКАПЫ\\DISTRIBUTIV\\ПРОГРАММЫ\\---Медиа & Графика & Обработка данных\\Matlab R2020a [x64] [PC] [Windows]";
     private static final String PATH_1 = "L:\\БЭКАПЫ\\DISTRIBUTIV\\ПРОГРАММЫ\\[11]Медиаплееры\\PotPlayer\\POT PLAYER настройка";

@@ -1,7 +1,7 @@
-package md5.stage2read;
+package md5.stage3read;
 
 import lombok.Builder;
-import md5.stage1estimate.SourceInfo;
+import md5.stage1sourcesdata.SourceInfo;
 
 import java.nio.file.Path;
 

@@ -1,12 +1,12 @@
 package md5;
 
-import md5.stage1estimate.SourceInfo;
-import md5.stage2read.Cache;
-import md5.stage2read.FileReadManager;
-import md5.stage3hash.Md5CalculatorManager;
-import md5.stage4results.Md5Results;
+import md5.stage1sourcesdata.SourceInfo;
+import md5.stage3read.Cache;
+import md5.stage3read.ReadManager;
+import md5.stage4hash.Md5CalculatorManager;
+import md5.stage5results.Md5Results;
 
-import java.util.Set;
+import java.util.List;
 
 /*
     todo
@@ -24,15 +24,21 @@ import java.util.Set;
 public class Md5 {
 
     public static void main(String[] args) throws InterruptedException {
+        // Если расположения находятся на одном физическом диске, то лучше их указать в одном потоке чтения,
+        // чтобы программа их читала последовательно, а не параллельно
+
 
         /*final Set<SourceInfo> sources = Set.of(
             new SourceInfo("D:\\ТОРРЕНТЫ", "D:"),
             new SourceInfo("E:\\[test]", "E: 2.5\"")
         );*/
-        final Set<SourceInfo> sources = Set.of(
-            new SourceInfo("I:\\test\\1", "I"),
+        final List<SourceInfo> sources = List.of(
+            SourceInfo.builder().path("I:\\test\\1").tag(1).readThreadId("I").build(),
+            SourceInfo.builder().path("I:\\test\\2").tag(2).readThreadId("I").build(),
+            SourceInfo.builder().path("F:\\test\\3").tag(3).readThreadId("F").build()
+            /*new SourceInfo("I:\\test\\1", "I"),
             new SourceInfo("I:\\test\\2", "I"),
-            new SourceInfo("F:\\test\\3", "F")
+            new SourceInfo("F:\\test\\3", "F")*/
         );
         /*final Set<SourceInfo> sources = Set.of(
             new SourceInfo("K:\\GAMES\\GAMES 2\\Streets of Rage\\Street Of Rage Collection\\Streets_of_Rage_2X_v1.1_setup.exe", "1")
@@ -53,13 +59,17 @@ public class Md5 {
 
 
 
-        final int nSimultaneousThreads = 4;
+        final int maxCalculationThreads = 4;
 
         Cache cache = new Cache(sources);
-        new Thread(new FileReadManager(sources, cache)).start();
-        Md5Results results = new Md5Results(sources);
+
+        var readManager = new ReadManager(sources, cache);
+        var results = new Md5Results(sources);
+        var calculatorManager = new Md5CalculatorManager(sources, cache, maxCalculationThreads, results);
+
+        new Thread(readManager).start();
+        new Thread(calculatorManager).start();
         new Thread(results).start();
-        new Thread(new Md5CalculatorManager(sources, cache, nSimultaneousThreads, results)).start();
 
     }
 
