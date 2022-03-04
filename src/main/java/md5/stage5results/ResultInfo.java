@@ -1,11 +1,11 @@
 package md5.stage5results;
 
-import md5.stage1sourcesdata.SourceInfo;
+import md5.stage1sourcesdata.Source;
 
 import java.nio.file.Path;
 
 public record ResultInfo(
-    SourceInfo sourceInfo, Path relativePath, Info info, String md5
+    Source source, Path relativePath, Info info, String md5
 ) {
 
     public enum Info {

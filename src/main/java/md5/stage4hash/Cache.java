@@ -1,13 +1,14 @@
-package md5.stage3read;
+package md5.stage4hash;
 
-import md5.stage1sourcesdata.SourceInfo;
+import md5.stage1sourcesdata.Source;
+import md5.stage3read.FilePart;
 
 import java.util.Collection;
 import java.util.Map;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
-import java.util.stream.StreamSupport;
 
 // todo ограничить размер задавая суммарный максимальный размер данных файлов (т.е. учитывать только byte[] файла)
 
@@ -31,20 +32,28 @@ public class Cache {
 
     }*/
 
+    private final long maxSize = 500*1024L*1024;
+    private final Map<Source, BlockingQueue<FilePart>> map;
+    //private volatile long size = 0;
 
-    private final Map<SourceInfo, BlockingQueue<FilePart>> map;
-
-    public Cache(Collection<SourceInfo> sourceInfos) {
-        map = sourceInfos.stream().collect(
+    public Cache(Collection<Source> sources) {
+        map = sources.stream().collect(
             Collectors.toUnmodifiableMap(info->info, info->new LinkedBlockingQueue<>())
         );
     }
 
     public void add(FilePart filePart) throws InterruptedException {
-        map.get(filePart.sourceInfo()).put(filePart);
+        //long partSz = filePart.part()==null ? 0 : filePart.part().length;
+        //while (partSz+size > maxSize) this.wait();
+        //size += filePart.len();
+        map.get(filePart.source()).put(filePart);
     }
 
-    public FilePart take(SourceInfo source) throws InterruptedException {
-        return map.get(source).take();
+    public FilePart take(Source source) throws InterruptedException {
+        //System.out.println("source");
+        var elem = map.get(source).take();
+        //size -= elem.len();
+        //this.notifyAll();
+        return elem;
     }
 }

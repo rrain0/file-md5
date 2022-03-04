@@ -1,7 +1,6 @@
 package md5.stage4hash;
 
-import md5.stage1sourcesdata.SourceInfo;
-import md5.stage3read.Cache;
+import md5.stage1sourcesdata.Source;
 import md5.stage3read.FilePart;
 import md5.stage5results.Md5Results;
 import md5.stage5results.ResultInfo;
@@ -10,17 +9,15 @@ import java.math.BigInteger;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 
-public class Md5CalculatorTask implements Runnable {
+public class CalculatorTask implements Runnable {
     private final MessageDigest mdEnc;
-    private final SourceInfo sourceInfo;
+    private final Source source;
     private final Cache cache;
-    private final Md5CalculatorManager manager;
-    private final Md5Results results;
+    private final CalculatorManager manager;
 
-    public Md5CalculatorTask(SourceInfo sourceInfo, Md5CalculatorManager manager, Md5Results results, Cache cache) {
-        this.sourceInfo = sourceInfo;
+    public CalculatorTask(Source source, CalculatorManager manager, Cache cache) {
+        this.source = source;
         this.manager = manager;
-        this.results = results;
         this.cache = cache;
         try {
             mdEnc = MessageDigest.getInstance("MD5");
@@ -44,9 +41,6 @@ public class Md5CalculatorTask implements Runnable {
         String md5 = new BigInteger(1, mdEnc.digest()).toString(16);
         StringBuilder sb = new StringBuilder(md5);
         while (sb.length()<32) sb.insert(0, "0");
-        //sb.insert(24, " ");
-        //sb.insert(16, " ");
-        //sb.insert(8, " ");
         return sb.toString().toUpperCase();
     }
 
@@ -66,30 +60,41 @@ public class Md5CalculatorTask implements Runnable {
 
     private void work() throws InterruptedException {
         while (true){
-            manager.awaitForWork(sourceInfo);
-            FilePart part = cache.take(sourceInfo);
+            //System.out.println("before await");
+            manager.awaitForWork(source);
+            //System.out.println("after await");
+            FilePart part = cache.take(source);
             switch (part.info()){
                 case NEW_FILE -> {}
                 case PART -> addNextPart(part.part());
                 case FILE_END -> {
                     String md5 = getMd5();
-                    results.add(new ResultInfo(sourceInfo, part.relativePath(), ResultInfo.Info.FILE, md5));
+
+                    //results.add(new ResultInfo(source, part.relativePath(), ResultInfo.Info.FILE, md5));
+                    System.out.println(new ResultInfo(source, part.relativePath(), ResultInfo.Info.FILE, md5));
                 }
                 case NOT_FOUND -> {
                     reset();
-                    results.add(new ResultInfo(sourceInfo, part.relativePath(), ResultInfo.Info.NOT_FOUND, null));
+
+                    //results.add(new ResultInfo(source, part.relativePath(), ResultInfo.Info.NOT_FOUND, null));
+                    System.out.println(new ResultInfo(source, part.relativePath(), ResultInfo.Info.NOT_FOUND, null));
                 }
                 case READ_ERROR -> {
                     reset();
-                    results.add(new ResultInfo(sourceInfo, part.relativePath(), ResultInfo.Info.READ_ERROR, null));
+
+                    //results.add(new ResultInfo(source, part.relativePath(), ResultInfo.Info.READ_ERROR, null));
+                    System.out.println(new ResultInfo(source, part.relativePath(), ResultInfo.Info.READ_ERROR, null));
                 }
-                case FINISH_ALL -> {
-                    manager.workFinished(sourceInfo);
-                    results.add(new ResultInfo(sourceInfo, null, ResultInfo.Info.FINISH_ALL, null));
+                case SOURCE_FINISHED -> {
+                    manager.workFinished(source);
+
+                    //results.add(new ResultInfo(source, null, ResultInfo.Info.FINISH_ALL, null));
+                    System.out.println(new ResultInfo(source, null, ResultInfo.Info.FINISH_ALL, null));
+
                     return;
                 }
             }
-            manager.oneFilePartCalculated(sourceInfo);
+            manager.oneFilePartCalculated(source);
         }
     }
 

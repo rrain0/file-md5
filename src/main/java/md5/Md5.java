@@ -1,10 +1,12 @@
 package md5;
 
-import md5.stage1sourcesdata.SourceInfo;
-import md5.stage3read.Cache;
+import md5.event.EventManager;
+import md5.print.PrintManager;
+import md5.stage1sourcesdata.Source;
+import md5.stage1sourcesdata.SourceManager;
+import md5.stage2estimate.EstimateManager;
 import md5.stage3read.ReadManager;
-import md5.stage4hash.Md5CalculatorManager;
-import md5.stage5results.Md5Results;
+import md5.stage4hash.CalculatorManager;
 
 import java.util.List;
 
@@ -23,23 +25,37 @@ import java.util.List;
 
 public class Md5 {
 
-    public static void main(String[] args) throws InterruptedException {
+    public static void main(String[] args) {
         // Если расположения находятся на одном физическом диске, то лучше их указать в одном потоке чтения,
         // чтобы программа их читала последовательно, а не параллельно
 
+
+
+        final List<Source> sources = List.of(
+            Source.builder().path("L:\\ВИДЕО\\Dr. Stone - Доктор Стоун\\Доктор Стоун S01 1080p HEVC AniPlague")
+                .tag(1).readThreadId("L").build(),
+            Source.builder().path("E:\\ТОРРЕНТЫ\\Доктор Стоун S01 1080p HEVC")
+                .tag(2).readThreadId("E").build()
+        );
+        /*final List<Source> sources = List.of(
+            Source.builder().path("E:\\1233").tag(1).readThreadId("E").build(),
+            Source.builder().path("E:\\1234").tag(2).readThreadId("E").build()
+        );*/
 
         /*final Set<SourceInfo> sources = Set.of(
             new SourceInfo("D:\\ТОРРЕНТЫ", "D:"),
             new SourceInfo("E:\\[test]", "E: 2.5\"")
         );*/
-        final List<SourceInfo> sources = List.of(
-            SourceInfo.builder().path("I:\\test\\1").tag(1).readThreadId("I").build(),
-            SourceInfo.builder().path("I:\\test\\2").tag(2).readThreadId("I").build(),
-            SourceInfo.builder().path("F:\\test\\3").tag(3).readThreadId("F").build()
-            /*new SourceInfo("I:\\test\\1", "I"),
+
+        /*final List<Source> sources = List.of(
+            Source.builder().path("I:\\test\\1").tag(1).readThreadId("I").build(),
+            Source.builder().path("I:\\test\\2").tag(2).readThreadId("I").build(),
+            Source.builder().path("F:\\test\\3").tag(3).readThreadId("F").build()
+            *//*new SourceInfo("I:\\test\\1", "I"),
             new SourceInfo("I:\\test\\2", "I"),
-            new SourceInfo("F:\\test\\3", "F")*/
-        );
+            new SourceInfo("F:\\test\\3", "F")*//*
+        );*/
+
         /*final Set<SourceInfo> sources = Set.of(
             new SourceInfo("K:\\GAMES\\GAMES 2\\Streets of Rage\\Street Of Rage Collection\\Streets_of_Rage_2X_v1.1_setup.exe", "1")
         );*//*
@@ -58,6 +74,7 @@ public class Md5 {
         );*/
 
 
+/*
 
         final int maxCalculationThreads = 4;
 
@@ -70,7 +87,26 @@ public class Md5 {
         new Thread(readManager).start();
         new Thread(calculatorManager).start();
         new Thread(results).start();
+*/
 
+
+
+
+        final int maxCalculationThreads = 2;
+
+        var eventManager = new EventManager();
+
+        var printManager = new PrintManager(eventManager);
+        var sourcesManager = new SourceManager(sources, eventManager);
+        var estimateManager = new EstimateManager(eventManager);
+        var readManager = new ReadManager(eventManager);
+        var calcManager = new CalculatorManager(maxCalculationThreads, eventManager);
+
+        new Thread(printManager).start();
+        new Thread(sourcesManager).start();
+        new Thread(estimateManager).start();
+        new Thread(readManager).start();
+        new Thread(calcManager).start();
     }
 
 

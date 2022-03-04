@@ -1,6 +1,6 @@
 package md5.stage3read;
 
-import md5.stage1sourcesdata.SourceInfo;
+import md5.event.EventManager;
 
 import java.io.*;
 import java.nio.file.Path;
@@ -10,49 +10,40 @@ import java.nio.file.Path;
 // todo set max filepart in ram
 
 public class ReadTask implements Runnable {
-    public final SourceInfo sourceInfo;
-    public final Cache cache;
-    public final ReadManager readManager;
+    private final SourceFiles files;
+    private final ReadManager readManager;
+    private final EventManager eventManager;
 
 
 
 
-    public ReadTask(SourceInfo sourceInfo, Cache cache, ReadManager readManager) {
-        this.sourceInfo = sourceInfo;
-        this.cache = cache;
+    public ReadTask(SourceFiles files, ReadManager readManager, EventManager eventManager) {
+        this.files = files;
         this.readManager = readManager;
+        this.eventManager = eventManager;
     }
 
 
     @Override
     public void run() {
         try {
-            walkFileTree(Path.of(""));
-            readManager.workFinished(sourceInfo);
+            for (var info : files.files){
+                readManager.awaitForWork(files);
+                File f = info.src().path().resolve(info.relPath()).toFile();
+                readFile(f,info.relPath());
+                readManager.oneFileWasRead(files);
+            }
+            readManager.workFinished(files);
             FilePart fp = FilePart.builder()
-                .sourceInfo(sourceInfo)
-                .info(FilePart.Info.FINISH_ALL)
+                .source(files.src)
+                .info(FilePart.Info.SOURCE_FINISHED)
                 .build();
-            cache.add(fp);
+            eventManager.addEvent(new ReadEv(ReadEvType.SOURCE_FINISHED, fp));
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
     }
 
-    private void walkFileTree(Path p) throws InterruptedException {
-        readManager.awaitForWork(sourceInfo);
-        Path root = sourceInfo.path();
-        File f = root.resolve(p).toFile();
-        if (f.isFile()){
-            readFile(f,p);
-            readManager.oneFileWasRead(sourceInfo);
-        } else if (f.isDirectory()){
-            for (File ff : f.listFiles()){
-                Path pp = p.resolve(ff.getName());
-                walkFileTree(pp);
-            }
-        }
-    }
 
     private void readFile(File f, Path relativePath) throws InterruptedException {
         try(BufferedInputStream bis = new BufferedInputStream(new FileInputStream(f))){
@@ -61,22 +52,21 @@ public class ReadTask implements Runnable {
 
             {
                 FilePart fp = FilePart.builder()
-                    .sourceInfo(sourceInfo)
+                    .source(files.src)
                     .relativePath(relativePath)
                     .info(FilePart.Info.NEW_FILE)
                     .len(len)
                     .build();
-                cache.add(fp);
+                eventManager.addEvent(new ReadEv(ReadEvType.NEW_FILE, fp));
             }
 
-            //System.out.println("before for");
             for (long from = 0, to = 0; to<len; from=to){
                 to = Long.min(from+chunkSz,len);
                 byte[] buf = new byte[(int) (to-from)];
                 bis.read(buf);
 
                 FilePart fp = FilePart.builder()
-                    .sourceInfo(sourceInfo)
+                    .source(files.src)
                     .relativePath(relativePath)
                     .info(FilePart.Info.PART)
                     .from(from)
@@ -84,37 +74,36 @@ public class ReadTask implements Runnable {
                     .len(len)
                     .part(buf)
                     .build();
-                cache.add(fp);
+                eventManager.addEvent(new ReadEv(ReadEvType.PART, fp));
             }
-            //System.out.println("after for");
 
             {
                 FilePart fp = FilePart.builder()
-                    .sourceInfo(sourceInfo)
+                    .source(files.src)
                     .relativePath(relativePath)
                     .info(FilePart.Info.FILE_END)
                     .len(len)
                     .build();
-                cache.add(fp);
+                eventManager.addEvent(new ReadEv(ReadEvType.FILE_END, fp));
             }
         } catch (FileNotFoundException e) {
             e.printStackTrace();
 
             FilePart fp = FilePart.builder()
-                .sourceInfo(sourceInfo)
+                .source(files.src)
                 .relativePath(relativePath)
                 .info(FilePart.Info.NOT_FOUND)
                 .build();
-            cache.add(fp);
+            eventManager.addEvent(new ReadEv(ReadEvType.NOT_FOUND, fp));
         } catch (IOException e) {
             e.printStackTrace();
 
             FilePart fp = FilePart.builder()
-                .sourceInfo(sourceInfo)
+                .source(files.src)
                 .relativePath(relativePath)
                 .info(FilePart.Info.READ_ERROR)
                 .build();
-            cache.add(fp);
+            eventManager.addEvent(new ReadEv(ReadEvType.READ_ERROR, fp));
         }
     }
 

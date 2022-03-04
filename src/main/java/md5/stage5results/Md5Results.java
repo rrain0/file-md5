@@ -1,6 +1,6 @@
 package md5.stage5results;
 
-import md5.stage1sourcesdata.SourceInfo;
+import md5.stage1sourcesdata.Source;
 
 import java.nio.file.Path;
 import java.util.*;
@@ -15,12 +15,12 @@ import java.util.stream.Collectors;
 public class Md5Results implements Runnable {
 
     // List<sourcePath>
-    public final List<SourceInfo> sources;
+    public final List<Source> sources;
 
     // raw Map<sourcePath, ResultInfo with md5>
     private final Map<Path, ResultInfo> rawSourceToResultMap;
 
-    private final Set<SourceInfo> workingSources;
+    private final Set<Source> workingSources;
 
 
     // Map<relativePath, Map<sourcePath, ResultInfo with md5>>
@@ -29,7 +29,7 @@ public class Md5Results implements Runnable {
     private final Map<Path, Map<ResultInfo.Info, Integer>> filesCnt;
 
 
-    public Md5Results(List<SourceInfo> sources) {
+    public Md5Results(List<Source> sources) {
         this.sources = sources;
         workingSources = new HashSet<>(sources);
         rawSourceToResultMap = sources.stream().collect(HashMap::new, (map,elem)->map.put(elem.path(),null), Map::putAll);
@@ -58,12 +58,12 @@ public class Md5Results implements Runnable {
 
             //System.out.println("AAAAA "+result);
 
-            if (!sources.contains(result.sourceInfo())) throw new RuntimeException("Unexpected source: "+result.sourceInfo().path());
+            if (!sources.contains(result.source())) throw new RuntimeException("Unexpected source: "+result.source().path());
 
             // todo Exception if try to put result if it nonnull yet - this means 1 file proceeded 2+ times
 
             if (result.info()==ResultInfo.Info.FINISH_ALL){
-                workingSources.remove(result.sourceInfo());
+                workingSources.remove(result.source());
                 if (workingSources.isEmpty()) break;
                 else continue;
             }
@@ -73,7 +73,7 @@ public class Md5Results implements Runnable {
             var sourceToResultMap = results.computeIfAbsent(
                 result.relativePath(), k->new HashMap<>(rawSourceToResultMap)
             );
-            var srcPath = result.sourceInfo().path();
+            var srcPath = result.source().path();
             sourceToResultMap.put(srcPath, result);
 
             //filesCnt.get(srcPath).put(result.info(), filesCnt.get(srcPath).get(result.info())+1);
@@ -94,7 +94,7 @@ public class Md5Results implements Runnable {
     }
 
     // result может быть null если файла нет и не предполагалось
-    private void printResultsList(List<SourceInfo> srcs){
+    private void printResultsList(List<Source> srcs){
 
         results.forEach((relPath,srcMap)->{
             System.out.println(relPath);
@@ -116,7 +116,7 @@ public class Md5Results implements Runnable {
         });
     }
 
-    private void printFalsesResults(List<SourceInfo> srcs){
+    private void printFalsesResults(List<Source> srcs){
         System.out.println();
         System.out.println("FALSES:");
         results.forEach((relPath,srcMap)->{
@@ -142,7 +142,7 @@ public class Md5Results implements Runnable {
         });
     }
 
-    private void printFilesCnt(List<SourceInfo> srcs){
+    private void printFilesCnt(List<Source> srcs){
         var infos = List.of(ResultInfo.Info.FILE, ResultInfo.Info.READ_ERROR, ResultInfo.Info.NOT_FOUND);
         StringBuilder sb = new StringBuilder();
         sb.append('\n').append("FILES COUNT:").append('\n');
@@ -156,7 +156,7 @@ public class Md5Results implements Runnable {
         System.out.println(sb);
     }
 
-    private String printOne(SourceInfo src, Path rel, ResultInfo result){
+    private String printOne(Source src, Path rel, ResultInfo result){
         return (
             "\t"+
             "src: ["+src.readThreadId()+", "+src.path()+"] "+

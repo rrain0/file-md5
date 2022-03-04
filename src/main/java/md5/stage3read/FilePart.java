@@ -1,7 +1,7 @@
 package md5.stage3read;
 
 import lombok.Builder;
-import md5.stage1sourcesdata.SourceInfo;
+import md5.stage1sourcesdata.Source;
 
 import java.nio.file.Path;
 
@@ -16,12 +16,12 @@ public record FilePart(
     long to,
     long len,
 
-    SourceInfo sourceInfo,
+    Source source,
     Path relativePath
 ){
     public enum Info{
         NEW_FILE, PART, FILE_END,
-        NOT_FOUND, READ_ERROR, FINISH_ALL
+        NOT_FOUND, READ_ERROR, SOURCE_FINISHED
     }
 
     @Builder
