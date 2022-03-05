@@ -17,7 +17,7 @@ public record FilePart(
     long len,
 
     Source source,
-    Path relativePath
+    Path relPath
 ){
     public enum Info{
         NEW_FILE, PART, FILE_END,

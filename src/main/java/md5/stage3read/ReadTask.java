@@ -53,7 +53,7 @@ public class ReadTask implements Runnable {
             {
                 FilePart fp = FilePart.builder()
                     .source(files.src)
-                    .relativePath(relativePath)
+                    .relPath(relativePath)
                     .info(FilePart.Info.NEW_FILE)
                     .len(len)
                     .build();
@@ -67,7 +67,7 @@ public class ReadTask implements Runnable {
 
                 FilePart fp = FilePart.builder()
                     .source(files.src)
-                    .relativePath(relativePath)
+                    .relPath(relativePath)
                     .info(FilePart.Info.PART)
                     .from(from)
                     .to(to)
@@ -80,7 +80,7 @@ public class ReadTask implements Runnable {
             {
                 FilePart fp = FilePart.builder()
                     .source(files.src)
-                    .relativePath(relativePath)
+                    .relPath(relativePath)
                     .info(FilePart.Info.FILE_END)
                     .len(len)
                     .build();
@@ -91,7 +91,7 @@ public class ReadTask implements Runnable {
 
             FilePart fp = FilePart.builder()
                 .source(files.src)
-                .relativePath(relativePath)
+                .relPath(relativePath)
                 .info(FilePart.Info.NOT_FOUND)
                 .build();
             eventManager.addEvent(new ReadEv(ReadEvType.NOT_FOUND, fp));
@@ -100,7 +100,7 @@ public class ReadTask implements Runnable {
 
             FilePart fp = FilePart.builder()
                 .source(files.src)
-                .relativePath(relativePath)
+                .relPath(relativePath)
                 .info(FilePart.Info.READ_ERROR)
                 .build();
             eventManager.addEvent(new ReadEv(ReadEvType.READ_ERROR, fp));

@@ -32,68 +32,32 @@ public class Md5 {
 
 
 
-        final List<Source> sources = List.of(
+        /*final List<Source> sources = List.of(
             Source.builder().path("L:\\ВИДЕО\\Dr. Stone - Доктор Стоун\\Доктор Стоун S01 1080p HEVC AniPlague")
                 .tag(1).readThreadId("L").build(),
             Source.builder().path("E:\\ТОРРЕНТЫ\\Доктор Стоун S01 1080p HEVC")
                 .tag(2).readThreadId("E").build()
-        );
-        /*final List<Source> sources = List.of(
-            Source.builder().path("E:\\1233").tag(1).readThreadId("E").build(),
-            Source.builder().path("E:\\1234").tag(2).readThreadId("E").build()
-        );*/
-
-        /*final Set<SourceInfo> sources = Set.of(
-            new SourceInfo("D:\\ТОРРЕНТЫ", "D:"),
-            new SourceInfo("E:\\[test]", "E: 2.5\"")
         );*/
 
         /*final List<Source> sources = List.of(
             Source.builder().path("I:\\test\\1").tag(1).readThreadId("I").build(),
             Source.builder().path("I:\\test\\2").tag(2).readThreadId("I").build(),
             Source.builder().path("F:\\test\\3").tag(3).readThreadId("F").build()
-            *//*new SourceInfo("I:\\test\\1", "I"),
-            new SourceInfo("I:\\test\\2", "I"),
-            new SourceInfo("F:\\test\\3", "F")*//*
         );*/
 
-        /*final Set<SourceInfo> sources = Set.of(
-            new SourceInfo("K:\\GAMES\\GAMES 2\\Streets of Rage\\Street Of Rage Collection\\Streets_of_Rage_2X_v1.1_setup.exe", "1")
-        );*//*
-        final Set<SourceInfo> sources = Set.of(
-            new SourceInfo("L:\\[удалить]\\Street Of Rage Collection", "T64"),
-            new SourceInfo("G:\\[удалить]\\Street Of Rage Collection", "DATA_TWO"),
-            new SourceInfo("K:\\GAMES\\GAMES 2\\Streets of Rage\\Street Of Rage Collection", "Seagate")
-        );*/
-        /*final Set<SourceInfo> sources = Set.of(
-            new SourceInfo("H:\\[test]\\Fallout 4", "WD 2.5"),
-            new SourceInfo("K:\\[test]\\[долгий ящик]\\Fallout 4", "Seagate")
-        );*/
-        /*final Set<SourceInfo> sources = Set.of(
-            new SourceInfo("H:\\GAMES\\Grand Theft Auto V by xatab", "WD 2.5"),
-            new SourceInfo("K:\\GAMES\\GAMES 3\\Grand Theft Auto V by xatab", "Seagate")
-        );*/
+        final List<Source> sources = List.of(
+            Source.builder().path("K:\\GAMES\\GAMES 2\\Streets of Rage\\Street Of Rage Collection").
+                tag("Seagate").readThreadId("K").build(),
+            Source.builder().path("G:\\[удалить]\\Street Of Rage Collection").
+                tag("DATA_TWO").readThreadId("G").build(),
+            Source.builder().path("H:\\[удалить]\\Street Of Rage Collection").
+                tag("Ts64").readThreadId("H").build()
+        );
 
 
-/*
+
 
         final int maxCalculationThreads = 4;
-
-        Cache cache = new Cache(sources);
-
-        var readManager = new ReadManager(sources, cache);
-        var results = new Md5Results(sources);
-        var calculatorManager = new Md5CalculatorManager(sources, cache, maxCalculationThreads, results);
-
-        new Thread(readManager).start();
-        new Thread(calculatorManager).start();
-        new Thread(results).start();
-*/
-
-
-
-
-        final int maxCalculationThreads = 2;
 
         var eventManager = new EventManager();
 

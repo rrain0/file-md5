@@ -71,8 +71,8 @@ public class CalculatorTask implements Runnable {
                 case FILE_END -> {
                     String md5 = getMd5();
 
-                    var result = new CalcResult(source, part.relativePath(), CalcResult.Info.FILE_READY, md5);
-                    System.out.println(result);
+                    var result = new CalcResult(source, part.relPath(), CalcResult.Info.FILE_READY, md5);
+                    //System.out.println(result);
                     eventManager.addEvent(new CalcEv(CalcEvType.FILE_CALCULATED, result));
                 }
                 case NOT_FOUND -> {
@@ -86,7 +86,7 @@ public class CalculatorTask implements Runnable {
 
                     //results.add(new ResultInfo(source, null, ResultInfo.Info.FINISH_ALL, null));
                     var result = new CalcResult(source, null, CalcResult.Info.SOURCE_READY, null);
-                    System.out.println(result);
+                    //System.out.println(result);
                     eventManager.addEvent(new CalcEv(CalcEvType.SOURCE_READY, result));
                     return;
                 }
