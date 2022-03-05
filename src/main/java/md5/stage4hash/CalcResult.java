@@ -1,17 +1,16 @@
-package md5.stage5results;
+package md5.stage4hash;
 
 import md5.stage1sourcesdata.Source;
 
 import java.nio.file.Path;
 
-public record ResultInfo(
+public record CalcResult(
     Source source, Path relativePath, Info info, String md5
 ) {
 
     public enum Info {
-        FILE,
-        NOT_FOUND, READ_ERROR,
-        FINISH_ALL
+        FILE_READY,
+        SOURCE_READY
     }
 
 }

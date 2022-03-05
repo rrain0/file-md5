@@ -96,6 +96,7 @@ public class PrintManager implements Runnable {
                             ev.part.source().path(), ev.part.relativePath(), ev.part.source().tag()
                         ));
                     }
+
                     default -> {}
                 }
             }

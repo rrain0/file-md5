@@ -1,9 +1,8 @@
 package md5.stage4hash;
 
+import md5.event.EventManager;
 import md5.stage1sourcesdata.Source;
 import md5.stage3read.FilePart;
-import md5.stage5results.Md5Results;
-import md5.stage5results.ResultInfo;
 
 import java.math.BigInteger;
 import java.security.MessageDigest;
@@ -14,11 +13,13 @@ public class CalculatorTask implements Runnable {
     private final Source source;
     private final Cache cache;
     private final CalculatorManager manager;
+    private final EventManager eventManager;
 
-    public CalculatorTask(Source source, CalculatorManager manager, Cache cache) {
+    public CalculatorTask(Source source, CalculatorManager manager, Cache cache, EventManager eventManager) {
         this.source = source;
         this.manager = manager;
         this.cache = cache;
+        this.eventManager = eventManager;
         try {
             mdEnc = MessageDigest.getInstance("MD5");
         } catch (NoSuchAlgorithmException e) {
@@ -70,27 +71,23 @@ public class CalculatorTask implements Runnable {
                 case FILE_END -> {
                     String md5 = getMd5();
 
-                    //results.add(new ResultInfo(source, part.relativePath(), ResultInfo.Info.FILE, md5));
-                    System.out.println(new ResultInfo(source, part.relativePath(), ResultInfo.Info.FILE, md5));
+                    var result = new CalcResult(source, part.relativePath(), CalcResult.Info.FILE_READY, md5);
+                    System.out.println(result);
+                    eventManager.addEvent(new CalcEv(CalcEvType.FILE_CALCULATED, result));
                 }
                 case NOT_FOUND -> {
                     reset();
-
-                    //results.add(new ResultInfo(source, part.relativePath(), ResultInfo.Info.NOT_FOUND, null));
-                    System.out.println(new ResultInfo(source, part.relativePath(), ResultInfo.Info.NOT_FOUND, null));
                 }
                 case READ_ERROR -> {
                     reset();
-
-                    //results.add(new ResultInfo(source, part.relativePath(), ResultInfo.Info.READ_ERROR, null));
-                    System.out.println(new ResultInfo(source, part.relativePath(), ResultInfo.Info.READ_ERROR, null));
                 }
                 case SOURCE_FINISHED -> {
                     manager.workFinished(source);
 
                     //results.add(new ResultInfo(source, null, ResultInfo.Info.FINISH_ALL, null));
-                    System.out.println(new ResultInfo(source, null, ResultInfo.Info.FINISH_ALL, null));
-
+                    var result = new CalcResult(source, null, CalcResult.Info.SOURCE_READY, null);
+                    System.out.println(result);
+                    eventManager.addEvent(new CalcEv(CalcEvType.SOURCE_READY, result));
                     return;
                 }
             }

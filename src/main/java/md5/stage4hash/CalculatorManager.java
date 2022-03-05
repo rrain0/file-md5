@@ -7,6 +7,7 @@ import md5.stage1sourcesdata.Source;
 import md5.stage1sourcesdata.SourceEv;
 import md5.stage1sourcesdata.SourceEvType;
 import md5.stage3read.ReadEv;
+import md5.stage3read.ReadEvType;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -64,15 +65,17 @@ public class CalculatorManager implements Runnable {
 
                     for (int i = 0; i < onlineTasks.size(); i++) {
                         var source = onlineTasks.get(i);
-                        new Thread(new CalculatorTask(source, this, cache)).start();
+                        new Thread(new CalculatorTask(source, this, cache, eventManager)).start();
                         if (onlineTasks.size()-paused.size() < nSimultaneousThreads) paused.remove(source);
                     }
 
                     new Thread(this::work).start();
                 }
+                case ReadEv ev && ev.type==ReadEvType.ALL_READY-> {
+                    unsubscribe();
+                    break loop;
+                }
                 case ReadEv ev -> {
-                    //System.out.println("wait for read event");
-                    //System.out.println(ev.part);
                     cache.add(ev.part);
                 }
                 default -> {}
@@ -93,6 +96,7 @@ public class CalculatorManager implements Runnable {
                 this.notifyAll();
                 this.wait();
             }
+            eventManager.addEvent(new CalcEv(CalcEvType.ALL_READY, null));
         } catch (InterruptedException e) {
             e.printStackTrace();
         }

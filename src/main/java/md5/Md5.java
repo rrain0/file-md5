@@ -7,6 +7,7 @@ import md5.stage1sourcesdata.SourceManager;
 import md5.stage2estimate.EstimateManager;
 import md5.stage3read.ReadManager;
 import md5.stage4hash.CalculatorManager;
+import md5.stage5results.ResultManager;
 
 import java.util.List;
 
@@ -101,12 +102,14 @@ public class Md5 {
         var estimateManager = new EstimateManager(eventManager);
         var readManager = new ReadManager(eventManager);
         var calcManager = new CalculatorManager(maxCalculationThreads, eventManager);
+        var resultManager = new ResultManager(eventManager);
 
         new Thread(printManager).start();
         new Thread(sourcesManager).start();
         new Thread(estimateManager).start();
         new Thread(readManager).start();
         new Thread(calcManager).start();
+        new Thread(resultManager).start();
     }
 
 
