@@ -3,6 +3,7 @@ package md5.stage5results;
 import md5.event.Event;
 import md5.event.EventManager;
 import md5.event.SubscriptionHolder;
+import md5.print.TotalInSource;
 import md5.stage1sourcesdata.Source;
 import md5.stage1sourcesdata.SourceEv;
 import md5.stage1sourcesdata.SourceEvType;
@@ -26,17 +27,23 @@ import java.util.concurrent.LinkedBlockingQueue;
 
 public class ResultManager implements Runnable {
 
+    public ResultManager(EventManager eventManager) {
+        this.eventManager = eventManager;
+        subscribe();
+    }
+
     private final EventManager eventManager;
     private final BlockingQueue<Event<?>> incomeEvents = new LinkedBlockingQueue<>();
     private SubscriptionHolder holder;
 
 
-    private List<Source> sources;
     // Map<relativePath, Map<Source, ResultInfo with md5>>
     private final Map<Path, Map<Source, ResultEv>> compareResults = new HashMap<>();
 
 
 
+    private List<Source> sources;
+    private Map<Source, TotalInSource> sourceTotalsMap;
 
 
 
@@ -48,15 +55,11 @@ public class ResultManager implements Runnable {
     //private Map<Path, Map<CalcResult.Info, Integer>> filesCnt;
 
 
-    public ResultManager(EventManager eventManager) {
-        this.eventManager = eventManager;
-        subscribe();
-    }
 
-    private void subscribe(){
+    synchronized private void subscribe(){
         holder = eventManager.subscribe(incomeEvents::put);
     }
-    private void unsubscribe(){
+    synchronized private void unsubscribe(){
         holder.unsubscribe();
         incomeEvents.clear();
     }
@@ -76,14 +79,15 @@ public class ResultManager implements Runnable {
         loop: while (true){
             var event = incomeEvents.take();
             switch (event){
-                case SourceEv ev && ev.type== SourceEvType.ALL_READY -> {
+                case SourceEv ev && ev.type== SourceEvType.ALL_READY -> { synchronized (this){
                     sources = ev.sources;
+                    sourceTotalsMap = sources.stream().collect(HashMap::new, (map,s)->map.put(s,new TotalInSource(s)), Map::putAll);
                     /*filesCnt = sources.stream().collect(Collectors.toUnmodifiableMap(Source::path, src->
                         Arrays.stream(CalcResult.Info.values())
                             .filter(info->info!= CalcResult.Info.SOURCE_READY)
                             .collect(Collectors.toMap(info->info,info->0))
                     ));*/
-                }
+                }}
                 case EstimateEv ev && ev.type==EstimateEvType.FILE_FOUND -> {
                     var sourceMap = compareResults.compute(ev.fileInfo.relPath(), (rel,srcMap)->{
                         if (srcMap==null) srcMap = sources.stream().collect(

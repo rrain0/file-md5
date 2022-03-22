@@ -2,6 +2,7 @@ package md5;
 
 import md5.event.EventManager;
 import md5.print.PrintManager;
+import md5.readutils.ReadThreadManager;
 import md5.stage1sourcesdata.Source;
 import md5.stage1sourcesdata.SourceManager;
 import md5.stage2estimate.EstimateManager;
@@ -72,20 +73,25 @@ public class Md5 {
                 tag(2).readThreadId(2).build()
         );*/
 
+
         // todo THERE IS BUG
-        /*final List<Source> sources = List.of(
+        final List<Source> sources = List.of(
+            //Source.builder().path("H:\\SQL ДОРОФЕЕВ\\материалы\\DataBase 0").
+            //    tag(0).readThreadId(1).build(),
             Source.builder().path("H:\\SQL ДОРОФЕЕВ\\материалы\\DataBase 1 ноут").
                 tag(1).readThreadId(1).build(),
             Source.builder().path("H:\\SQL ДОРОФЕЕВ\\материалы\\DataBase 2 телефон").
                 tag(2).readThreadId(1).build()
+        );
+
+
+        /*final List<Source> sources = List.of(
+            Source.builder().path("F:\\test1").path("F:\\test2")
+                .tag(1).readThreadId("F").build(),
+            Source.builder().path("I:\\test1").path("I:\\test2")
+                .tag(2).readThreadId("I").build()
         );*/
 
-        final List<Source> sources = List.of(
-            Source.builder().path("L:\\БЭКАПЫ\\D\\УЧЕБНИКИ СМ\\Начерт и Инженерка\\Начертательная геометрия\\Начерт олимпиада задания на подготовку").
-                tag(1).readThreadId(1).build(),
-            Source.builder().path("I:\\Начерт олимпиада задания на подготовку").
-                tag(2).readThreadId(2).build()
-        );
 
 
 
@@ -93,20 +99,22 @@ public class Md5 {
         final int maxCalculationThreads = 4;
 
         var eventManager = new EventManager();
+        var readThreadManager = new ReadThreadManager();
 
-        var printManager = new PrintManager(eventManager);
         var sourcesManager = new SourceManager(sources, eventManager);
-        var estimateManager = new EstimateManager(eventManager);
-        var readManager = new ReadManager(eventManager);
+        var estimateManager = new EstimateManager(eventManager, readThreadManager);
+        var readManager = new ReadManager(eventManager, readThreadManager);
         var calcManager = new CalculatorManager(maxCalculationThreads, eventManager);
         var resultManager = new ResultManager(eventManager);
+        var printManager = new PrintManager(eventManager);
 
-        new Thread(printManager).start();
+
         new Thread(sourcesManager).start();
         new Thread(estimateManager).start();
         new Thread(readManager).start();
         new Thread(calcManager).start();
         new Thread(resultManager).start();
+        new Thread(printManager).start();
     }
 
 

@@ -23,27 +23,25 @@ public class EstimateTask implements Runnable {
     @Override
     public void run() {
         try {
-            walkFileTree(Path.of(""));
+            for (var src : src.paths()) walkFileTree(src,Path.of(""));
             manager.workFinished(src);
-            eventManager.addEvent(new EstimateEv(EstimateEvType.SOURCE_VIEWED, new FileInfo(src, null, null)));
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
     }
 
-    private void walkFileTree(Path p) throws InterruptedException {
+    private void walkFileTree(Path s, Path p) throws InterruptedException {
         manager.awaitForWork(src);
-        Path root = src.path();
-        File f = root.resolve(p).toFile();
+        File f = s.resolve(p).toFile();
         if (f.isFile()){
-            manager.fileFound(src);
-            eventManager.addEvent(new EstimateEv(EstimateEvType.FILE_FOUND, new FileInfo(src,p,f.length())));
+            manager.yield(src);
+            eventManager.addEvent(new EstimateEv(EstimateEvType.FILE_FOUND, new FileInfo(src,s,p,f.length())));
         } else if (f.isDirectory()){
             for (File ff : f.listFiles()){
                 Path pp = p.resolve(ff.getName());
-                walkFileTree(pp);
+                walkFileTree(s,pp);
             }
-            eventManager.addEvent(new EstimateEv(EstimateEvType.DIRECTORY_VIEWED, new FileInfo(src, p, null)));
+            eventManager.addEvent(new EstimateEv(EstimateEvType.DIRECTORY_VIEWED, new FileInfo(src, s,p, null)));
         }
     }
 

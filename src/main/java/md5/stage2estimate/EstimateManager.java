@@ -3,48 +3,39 @@ package md5.stage2estimate;
 import md5.event.Event;
 import md5.event.EventManager;
 import md5.event.SubscriptionHolder;
+import md5.readutils.ReadThreadBox;
+import md5.readutils.ReadThreadManager;
 import md5.stage1sourcesdata.Source;
 import md5.stage1sourcesdata.SourceEv;
 import md5.stage1sourcesdata.SourceEvType;
 
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.stream.Collectors;
 
-// todo менеджер будет считать кто сколько файлов прочитал и переключать потоки
-// todo менеджер будет пихать файлы в кэш
 
 public class EstimateManager implements Runnable{
-
-    private static class SourceInfoBox {
-        int curr = 0;
-        final List<Source> srcs;
-        public SourceInfoBox(List<Source> srcs) {
-            this.srcs = srcs;
-        }
-    }
 
     private final EventManager eventManager;
     private final BlockingQueue<Event<?>> incomeEvents = new LinkedBlockingQueue<>();
     private SubscriptionHolder holder;
 
-    // Map<readThreadId, SourceInfoBox>
-    private Map<Object, SourceInfoBox> sourceMap;
+    private final ReadThreadManager threadManager;
+
+    private Map<Object, ReadThreadBox<Source>> sourceMap; // Map<readThreadId, SourceInfoBox>
     private Set<Source> paused;
 
-    public EstimateManager(EventManager eventManager) {
+    public EstimateManager(EventManager eventManager, ReadThreadManager threadManager) {
         this.eventManager = eventManager;
+        this.threadManager = threadManager;
         subscribe();
     }
 
-    private void subscribe(){
+    synchronized private void subscribe(){
         holder = eventManager.subscribe(incomeEvents::put);
     }
-    private void unsubscribe(){
+    synchronized private void unsubscribe(){
         holder.unsubscribe();
         incomeEvents.clear();
     }
@@ -64,29 +55,27 @@ public class EstimateManager implements Runnable{
 
         while (true){
             Event<?> event = incomeEvents.take();
-            if (event instanceof SourceEv ev && ev.type==SourceEvType.ALL_READY){
+            if (event instanceof SourceEv ev && ev.type==SourceEvType.ALL_READY){ synchronized (this){
                 unsubscribe();
 
                 var sources = ev.sources;
 
                 sourceMap = sources.stream().collect(Collectors.groupingBy(
                     Source::readThreadId,
-                    Collectors.collectingAndThen(Collectors.toList(), SourceInfoBox::new)
+                    Collectors.collectingAndThen(Collectors.toList(), ReadThreadBox::new)
                 ));
-                paused = new HashSet<>(sources);
+                paused =new HashSet<>(sources);
 
-                sourceMap.forEach((id,box)->{
-                    for (int i = 0; i < box.srcs.size(); i++) {
-                        var source = box.srcs.get(i);
-                        new Thread(new EstimateTask(box.srcs.get(i), this, eventManager)).start();
-                        if (i==0) paused.remove(source);
-                    }
+                sourceMap.forEach((tId,box)->{
+                    box.getList().forEach(src->new Thread(new EstimateTask(src, this, eventManager)).start());
+                    paused.remove(box.get());
                 });
 
                 new Thread(this::work).start();
 
                 break;
-            }
+            }}
+
         }
     }
 
@@ -94,9 +83,8 @@ public class EstimateManager implements Runnable{
         try {
             while (!sourceMap.isEmpty()){
                 sourceMap.forEach((id,box)->{
-                    if (paused.containsAll(box.srcs)) {
-                        box.curr = (box.curr+1) % box.srcs.size();
-                        paused.remove(box.srcs.get(box.curr));
+                    if (paused.containsAll(box.getList())) {
+                        paused.remove(box.next());
                     }
                 });
                 this.notifyAll();
@@ -110,23 +98,27 @@ public class EstimateManager implements Runnable{
 
     synchronized public void awaitForWork(Source source) throws InterruptedException {
         while (paused.contains(source)) this.wait();
+        threadManager.acquire(source.readThreadId());
     }
 
 
-    synchronized public void fileFound(Source source){
+    synchronized public void yield(Source source){
         paused.add(source);
+        threadManager.release(source.readThreadId());
         this.notifyAll();
     }
 
     synchronized public void workFinished(Source source){
         paused.remove(source);
         sourceMap.compute(source.readThreadId(),(tId, box)->{
-            box.srcs.remove(source);
-            return box.srcs.size()==0 ? null : box;
+            box.remove(source);
+            if (box.getList().isEmpty()){
+                eventManager.addEvent(new EstimateEv(EstimateEvType.READ_THREAD_VIEWED, new FileInfo(source, null, null, null)));
+                return null;
+            }
+            return box;
         });
-        /*var sib = sourceMap.get(sourceInfo.readThreadId());
-        sib.srcs.remove(sourceInfo);
-        if (sib.len()==0) sourceMap.remove(sourceInfo.readThreadId());*/
+        eventManager.addEvent(new EstimateEv(EstimateEvType.SOURCE_VIEWED, new FileInfo(source, null, null, null)));
         this.notifyAll();
     }
 

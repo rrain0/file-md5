@@ -6,12 +6,15 @@ import md5.event.SubscriptionHolder;
 import md5.stage1sourcesdata.Source;
 import md5.stage1sourcesdata.SourceEv;
 import md5.stage1sourcesdata.SourceEvType;
+
+
+
 import md5.stage2estimate.EstimateEv;
 import md5.stage2estimate.EstimateEvType;
-import md5.stage3read.ReadEv;
-import md5.stage3read.ReadEvType;
-import md5.stage5results.ResultEv;
-import md5.stage5results.ResultEvType;
+//import md5.stage3read.ReadEv;
+//import md5.stage3read.ReadEvType;
+//import md5.stage5results.ResultEv;
+//import md5.stage5results.ResultEvType;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -51,10 +54,17 @@ public class PrintManager implements Runnable {
                 switch (event){
                     case SourceEv ev && ev.type==SourceEvType.ALL_READY -> {
                         sourceMap = ev.sources.stream().collect(HashMap::new, (map,s)->map.put(s,new TotalInSource(s)), Map::putAll);
+
+                        int sz = ev.sources.size();
+                        System.out.println(String.format("Sources: %s pcs%s", sz, sz>0?":":""));
+                        ev.sources.forEach(s->System.out.println("\t"+s));
+                        System.out.println();
                     }
 
+
+
                     case EstimateEv ev && ev.type==EstimateEvType.FILE_FOUND -> {
-                        sourceMap.computeIfPresent(ev.fileInfo.src(), (s,ts)->{
+                        sourceMap.compute(ev.fileInfo.src(), (s,ts)->{
                             ts.totalFiles++;
                             ts.totalSize+=ev.fileInfo.sz();
                             return ts;
@@ -66,13 +76,22 @@ public class PrintManager implements Runnable {
                     case EstimateEv ev && ev.type==EstimateEvType.SOURCE_VIEWED -> {
                         var src = ev.fileInfo.src();
                         var total = sourceMap.get(src);
-                        System.out.println(
-                            "src: ["+src.readThreadId()+", #"+src.tag()+", "+src.path()+"] "+
-                            "total folders: "+total.totalFolders+" "+
-                            "total files: "+total.totalFiles+" "+
-                            "total size: "+total.totalSize
-                        );
+                        System.out.println(String.format(
+                            "Source #%s readId=%s viewed:\n" +
+                                "\tpaths: %s\n" +
+                                "\ttotals: folders=%s files=%s size=%s",
+                            src.tag(), src.readThreadId(), src.paths(), total.totalFolders, total.totalFiles, total.totalSize
+                        ));
+                        System.out.println();
                     }
+
+                    case EstimateEv ev && ev.type==EstimateEvType.ALL_READY -> {
+                        // todo move futrher
+                        unsubscribe();
+                        break loop;
+                    }
+
+
 
                     /*case ReadEv ev && ev.type== ReadEvType.NEW_FILE -> {
                         System.out.println(String.format(
@@ -106,10 +125,12 @@ public class PrintManager implements Runnable {
                         ));
                     }*/
 
-                    case ResultEv ev && ev.type==ResultEvType.ALL_READY -> {
+
+                    // todo uncomment
+                    /*case ResultEv ev && ev.type==ResultEvType.ALL_READY -> {
                         unsubscribe();
                         break loop;
-                    }
+                    }*/
 
                     default -> {}
                 }

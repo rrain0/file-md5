@@ -3,49 +3,50 @@ package md5.stage3read;
 import md5.event.Event;
 import md5.event.EventManager;
 import md5.event.SubscriptionHolder;
+import md5.readutils.ReadThreadBox;
+import md5.readutils.ReadThreadManager;
 import md5.stage1sourcesdata.Source;
 import md5.stage1sourcesdata.SourceEv;
 import md5.stage1sourcesdata.SourceEvType;
 import md5.stage2estimate.EstimateEv;
 import md5.stage2estimate.EstimateEvType;
+import md5.stage4hash.CalcEv;
+import md5.stage4hash.CalcEvType;
 
 import java.util.*;
 import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.stream.Collectors;
 
 public class ReadManager implements Runnable{
 
-    private static class SourceInfoBox {
-        int waitForStart;
-        int curr = 0;
-        final List<SourceFiles> srcFiles;
-        public SourceInfoBox(List<SourceFiles> srcFiles) {
-            this.srcFiles = srcFiles;
-            waitForStart = srcFiles.size();
-        }
-    }
 
     private final EventManager eventManager;
     private final BlockingQueue<Event<?>> incomeEvents = new LinkedBlockingQueue<>();
     private SubscriptionHolder holder;
 
+    private final ReadThreadManager threadManager;
+
+
     private Map<Source,SourceFiles> srcToSrcFilesMap;
 
-    // Map<readThreadId, SourceInfoBox>
-    private Map<Object, SourceInfoBox> threadMap;
+
+    private Map<Object, ReadThreadBox<SourceFiles>> threadMap; // Map<readThreadId, SourceInfoBox>
     private Set<SourceFiles> paused;
 
-    public ReadManager(EventManager eventManager) {
+
+    private boolean ramOverload = false;
+
+    public ReadManager(EventManager eventManager, ReadThreadManager threadManager) {
         this.eventManager = eventManager;
+        this.threadManager = threadManager;
         subscribe();
     }
 
-    private void subscribe(){
+    synchronized private void subscribe(){
         holder = eventManager.subscribe(incomeEvents::put);
     }
-    private void unsubscribe(){
+    synchronized private void unsubscribe(){
         holder.unsubscribe();
         incomeEvents.clear();
     }
@@ -65,49 +66,38 @@ public class ReadManager implements Runnable{
         loop: while (true){
             var event = incomeEvents.take();
             switch (event){
-                case SourceEv ev && ev.type== SourceEvType.ALL_READY -> {
-                    srcToSrcFilesMap = ev.sources.stream().collect(HashMap::new, (map,s)->map.put(s,new SourceFiles(s)), Map::putAll);
-                    List<SourceFiles> sourceFilesList = ev.sources.stream().map(srcToSrcFilesMap::get).toList();
-                    threadMap = ev.sources.stream().collect(Collectors.groupingBy(
-                        Source::readThreadId, Collectors.collectingAndThen(
-                            Collectors.mapping(srcToSrcFilesMap::get, Collectors.toList()), SourceInfoBox::new
-                        ))
-                    );
-                    paused = Collections.synchronizedSet(new HashSet<>(sourceFilesList));
+                case SourceEv ev && ev.type==SourceEvType.ALL_READY -> { synchronized (this) {
+                    List<SourceFiles> sourceFilesList = ev.sources.stream().map(SourceFiles::new).toList();
+                    srcToSrcFilesMap = sourceFilesList.stream().collect(HashMap::new, (map,sf)->map.put(sf.src, sf), Map::putAll);
+                    threadMap = sourceFilesList.stream().collect(Collectors.groupingBy(
+                        sf->sf.src.readThreadId(), Collectors.collectingAndThen(Collectors.toList(), ReadThreadBox::new)
+                    ));
+                    paused = new HashSet<>(sourceFilesList);
                     new Thread(this::work).start();
-                }
-                case EstimateEv ev && ev.type==EstimateEvType.FILE_FOUND -> {
-                    srcToSrcFilesMap.get(ev.fileInfo.src()).files.add(ev.fileInfo);
-                }
-                case EstimateEv ev && ev.type==EstimateEvType.SOURCE_VIEWED -> {
+                }}
+                case EstimateEv ev && ev.type==EstimateEvType.FILE_FOUND -> { synchronized (this) {
+                        srcToSrcFilesMap.get(ev.fileInfo.src()).files.add(ev.fileInfo);
+                }}
+                case EstimateEv ev && ev.type==EstimateEvType.READ_THREAD_VIEWED -> { synchronized (this) {
                     var box = threadMap.get(ev.fileInfo.src().readThreadId());
-                    box.waitForStart--;
-                    if (box.waitForStart==0) {
-                        for (int i = 0; i < box.srcFiles.size(); i++) {
-                            var srcFiles = box.srcFiles.get(i);
-                            new Thread(new ReadTask(srcFiles, this, eventManager)).start();
-                            if (i==0) paused.remove(srcFiles);
-                        }
-                    }
-                }
-                case EstimateEv ev && ev.type==EstimateEvType.ALL_READY -> {
+                    box.getList().forEach(srcFiles->new Thread(new ReadTask(srcFiles, this, eventManager)).start());
+                    paused.remove(box.get());
+                    notifyAll();
+                }}
+
+                case CalcEv ev && ev.type==CalcEvType.READY_TO_WORK -> { synchronized (this) {
+                    ramOverload = false;
+                    notifyAll();
+                }}
+                case CalcEv ev && ev.type==CalcEvType.OVERLOADED -> { synchronized (this) {
+                    ramOverload = true;
+                    notifyAll();
+                }}
+                case CalcEv ev && ev.type==CalcEvType.ALL_READY -> {
                     unsubscribe();
                     break loop;
                 }
-                /*case EstimateEv ev && ev.type==EstimateEvType.ALL_READY -> {
 
-                    threadMap.forEach((id, box)->{
-                        for (int i = 0; i < box.srcFiles.size(); i++) {
-                            var source = box.srcFiles.get(i);
-                            new Thread(new ReadTask(source, this, eventManager)).start();
-                            if (i==0) paused.remove(source);
-                        }
-
-                    });
-
-                    new Thread(this::work).start();
-
-                }*/
                 default -> {}
             }
         }
@@ -117,10 +107,9 @@ public class ReadManager implements Runnable{
     synchronized private void work() {
         try {
             while (!threadMap.isEmpty()){
-                threadMap.forEach((id, box)->{
-                    if (paused.containsAll(box.srcFiles)) {
-                        box.curr = (box.curr+1) % box.srcFiles.size();
-                        paused.remove(box.srcFiles.get(box.curr));
+                threadMap.forEach((id,box)->{
+                    if (paused.containsAll(box.getList())) {
+                        paused.remove(box.next());
                     }
                 });
                 this.notifyAll();
@@ -133,20 +122,29 @@ public class ReadManager implements Runnable{
     }
 
     synchronized public void awaitForWork(SourceFiles source) throws InterruptedException {
-        while (paused.contains(source)) this.wait();
+        while (paused.contains(source) && ramOverload) this.wait();
+        threadManager.acquire(source.src.readThreadId());
     }
 
     synchronized public void oneFileWasRead(SourceFiles source){
         paused.add(source);
+        threadManager.release(source.src.readThreadId());
         this.notifyAll();
     }
 
     synchronized public void workFinished(SourceFiles source){
         paused.remove(source);
         threadMap.compute(source.src.readThreadId(),(tId, box)->{
-            box.srcFiles.remove(source);
-            return box.srcFiles.size()==0 ? null : box;
+            box.remove(source);
+            if (box.getList().isEmpty()){
+                return null;
+            }
+            return box;
         });
+        FilePart fp = FilePart.builder()
+            .source(source.src)
+            .build();
+        eventManager.addEvent(new ReadEv(ReadEvType.SOURCE_FINISHED, fp));
         this.notifyAll();
     }
 

@@ -3,18 +3,11 @@ package md5.stage4hash;
 import md5.event.Event;
 import md5.event.EventManager;
 import md5.event.SubscriptionHolder;
-import md5.stage1sourcesdata.Source;
-import md5.stage1sourcesdata.SourceEv;
-import md5.stage1sourcesdata.SourceEvType;
 import md5.stage3read.ReadEv;
 import md5.stage3read.ReadEvType;
 
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.LinkedBlockingQueue;
+import java.nio.file.Path;
+import java.util.concurrent.*;
 
 public class CalculatorManager implements Runnable {
 
@@ -24,22 +17,27 @@ public class CalculatorManager implements Runnable {
 
     private final int nSimultaneousThreads;
 
-    private volatile Cache cache;
 
-    private volatile List<Source> onlineTasks;
-    private int idx = 0;
-    private volatile Set<Source> paused;
+
+    private final ConcurrentHashMap<Path, Md5Hasher> hasherMap = new ConcurrentHashMap<>(); // Map<absolutePath, Md5Hasher>
+    private final BlockingQueue<Event<ReadEv>> fileParts = new LinkedBlockingQueue<>();
+    private long MAX_FILE_SIZE = 200 * 1024L * 1024;
+    private long totalFileSize = 0;
+
+    private final ExecutorService threads;
+
 
     public CalculatorManager(int nSimultaneousThreads, EventManager eventManager) {
         this.nSimultaneousThreads = nSimultaneousThreads;
+        threads = Executors.newFixedThreadPool(nSimultaneousThreads);
         this.eventManager = eventManager;
         subscribe();
     }
 
-    private void subscribe(){
+    synchronized private void subscribe(){
         holder = eventManager.subscribe(incomeEvents::put);
     }
-    private void unsubscribe(){
+    synchronized private void unsubscribe(){
         holder.unsubscribe();
         incomeEvents.clear();
     }
@@ -54,67 +52,72 @@ public class CalculatorManager implements Runnable {
     }
 
     private void start() throws InterruptedException {
+        new Thread(this::work).start();
 
         loop: while (true){
             var event = incomeEvents.take();
             switch (event){
-                case SourceEv ev && ev.type==SourceEvType.ALL_READY -> {
-                    cache = new Cache(ev.sources);
-                    onlineTasks = new ArrayList<>(ev.sources);
-                    paused = new HashSet<>(ev.sources);
-
-                    for (int i = 0; i < onlineTasks.size(); i++) {
-                        var source = onlineTasks.get(i);
-                        new Thread(new CalculatorTask(source, this, cache, eventManager)).start();
-                        if (onlineTasks.size()-paused.size() < nSimultaneousThreads) paused.remove(source);
-                    }
-
-                    new Thread(this::work).start();
-                }
-                case ReadEv ev && ev.type==ReadEvType.ALL_READY-> {
+                case ReadEv ev && ev.type==ReadEvType.ALL_READY -> { synchronized (this) {
                     unsubscribe();
+                    threads.shutdown();
                     break loop;
-                }
-                case ReadEv ev -> {
-                    cache.add(ev.part);
-                }
+                }}
+                case ReadEv ev -> { synchronized (this) {
+                    if (ev.type==ReadEvType.PART) {
+                        totalFileSize += ev.part.part().length;
+                        if (totalFileSize>=MAX_FILE_SIZE) eventManager.addEvent(new CalcEv(CalcEvType.OVERLOADED, null));
+                    }
+                    threads.execute(()->executeTask(ev));
+                }}
                 default -> {}
             }
         }
 
-
     }
 
-    synchronized private void work() {
+    private void work() {
         try {
-            while (!onlineTasks.isEmpty()){
-                while (onlineTasks.size()-paused.size() < Integer.min(nSimultaneousThreads, onlineTasks.size())){
-                    idx = (idx+1)% onlineTasks.size();
-                    var source = onlineTasks.get(idx);
-                    paused.remove(source);
-                }
-                this.notifyAll();
-                this.wait();
-            }
+            while (!threads.awaitTermination(Long.MAX_VALUE, TimeUnit.DAYS));
             eventManager.addEvent(new CalcEv(CalcEvType.ALL_READY, null));
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
     }
 
-    synchronized public void awaitForWork(Source source) throws InterruptedException {
-        while (paused.contains(source)) this.wait();
-    }
 
-    synchronized public void oneFilePartCalculated(Source source){
-        paused.add(source);
-        this.notifyAll();
-    }
+    private void executeTask(ReadEv ev){
+        switch (ev.type){
+            case NEW_FILE -> {
+                hasherMap.computeIfAbsent(
+                    ev.part.getFullPath(),
+                    path -> new Md5Hasher()
+                );
+            }
+            case PART -> {
+                var hasher = hasherMap.get(ev.part.getFullPath());
+                hasher.addNextPart(ev.part.part());
+                synchronized (this){
+                    totalFileSize -= ev.part.part().length;
+                    if (totalFileSize<MAX_FILE_SIZE) eventManager.addEvent(new CalcEv(CalcEvType.READY_TO_WORK, null));
+                }
+            }
+            case FILE_END -> {
+                var hasher = hasherMap.remove(ev.part.getFullPath());
+                var hash = hasher.getMd5();
 
-    synchronized public void workFinished(Source source){
-        paused.remove(source);
-        onlineTasks.remove(source);
-        notifyAll();
+                var result = new CalcResult(ev.part.source(), ev.part.srcPath(), ev.part.relPath(), hash);
+                eventManager.addEvent(new CalcEv(CalcEvType.FILE_CALCULATED, result));
+            }
+            case NOT_FOUND -> {
+                // файл должен быть, но не найден
+                // возможно, что пока читали файл, его удалили
+                hasherMap.remove(ev.part.getFullPath());
+            }
+            case READ_ERROR -> {
+                hasherMap.remove(ev.part.getFullPath());
+            }
+            default -> {}
+        }
     }
 
 
