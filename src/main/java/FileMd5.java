@@ -1,18 +1,19 @@
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.IOException;
-import java.io.InputStream;
+package main.java;
+
+import java.io.*;
 import java.math.BigInteger;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 
+
 public class FileMd5 {
   private static final String PATH_2 =
-    "L:\\[удалить]\\Fumetsu no Anata e  Для тебя бессмертный (JAM S01 20 eps)";
+    "D:\\[удалить]\\ВИДЕО\\[anime]\\Date A Live  Рандеву с Жизнью";
   private static final String PATH_1 =
-    "M:\\Anime\\Fumetsu no Anata e  Для тебя бессмертный\\[01] Fumetsu no Anata e (JAM S1 20 eps)  Для тебя бессмертный";
+    "F:\\Anime\\Date A Live  Рандеву с Жизнью";
 
 
+  private static int total = 0;
   private static int falses = 0;
 
   public static void main(String[] args) {
@@ -20,13 +21,14 @@ public class FileMd5 {
   }
 
 
-  public static void calcOld(){
+  public static void calcOld() {
     try {
       recursive(new File(PATH_1), new File(PATH_2));
     } catch (Exception e) {
       e.printStackTrace();
     } finally {
       System.out.println();
+      System.out.println("TOTAL: " + total);
       System.out.println("FALSES: " + falses);
     }
   }
@@ -38,9 +40,10 @@ public class FileMd5 {
       }
     }
     else if (f1.isFile()) {
-      String md5f1 = md5(getFileContent(f1));
-      String md5f2 = md5(getFileContent(f2));
+      String md5f1 = getMd5(f1);
+      String md5f2 = getMd5(f2);
       boolean equality = md5f1.equals(md5f2);
+      total++;
       if (!equality) falses++;
       String eq = equality ? "true" : "FALSE";
       String md5 = equality ? " MD5: " + md5f1 : "";
@@ -48,18 +51,22 @@ public class FileMd5 {
     }
   }
 
-  private static byte[] getFileContent(File f) throws IOException {
-    InputStream is = new FileInputStream(f);
-    byte[] bytes = new byte[(int)f.length()];
-    is.read(bytes);
-    is.close();
-    return bytes;
-  }
-
   private static final MD5Calculator MD5 = new MD5Calculator();
-  private static String md5(byte[] bytes) {
-    MD5.nextPart(bytes);
-    return MD5.getMD5();
+
+  private static String getMd5(File f) throws IOException {
+    var maxArrLen = Integer.MAX_VALUE / 2;
+    var len = f.length();
+    try (InputStream is = new FileInputStream(f)) {
+      MD5.reset();
+      while (len > 0) {
+        var partLen = (int)Math.min(len, maxArrLen);
+        len -= partLen;
+        var part = new byte[partLen];
+        is.read(part);
+        MD5.nextPart(part);
+      }
+      return MD5.getMD5();
+    }
   }
 
 
